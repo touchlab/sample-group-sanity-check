@@ -12,7 +12,7 @@ export async function run(): Promise<void> {
     // Expect GROUP to be set in gradle.properties
     const src = fs.readFileSync('gradle.properties', 'utf8')
     const obj = parse(src)
-    // Expect the harcode key GROUP for now
+    // Expect the hardcoded key GROUP for now
     const groupId = obj['GROUP'] as string
 
     // We are only interested in failing if groupId is set to co.touchlab
