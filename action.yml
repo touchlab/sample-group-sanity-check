@@ -3,5 +3,5 @@ description: 'Make sure GroupId is not Touchlab specific if organization is not 
 author: 'Touchlab'
 
 runs:
-  using: node20
+  using: node24
   main: dist/index.js

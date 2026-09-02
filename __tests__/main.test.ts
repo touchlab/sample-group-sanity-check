@@ -4,10 +4,10 @@ import * as fs from 'fs'
 import { run } from './../src/main'
 
 jest.mock('@actions/core')
+// Keep the real fs module: @actions/core's dependency graph reads fs.constants
+// at import time, so replacing fs wholesale breaks module loading.
 jest.mock('fs', () => ({
-  promises: {
-    access: jest.fn()
-  },
+  ...jest.requireActual('fs'),
   readFileSync: jest.fn()
 }))
 
