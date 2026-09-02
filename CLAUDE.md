@@ -62,6 +62,24 @@ ceiling means migrating the whole project to ESM, which also requires rewriting
 the Jest mocks to `jest.unstable_mockModule` — `jest.mock` does not work the
 same way under ESM.
 
+### The undici override
+
+`package.json` pins `overrides: { "undici": "^6.28.0" }`. `@actions/github` 7.x
+depends directly on `undici` 5.x, which Trivy flags with 12 CVEs (3 high).
+**`npm audit` reports zero for these**, so they surface only in super-linter's
+Trivy step — do not drop the override as unnecessary because a local audit is
+clean. 6.28.0 is also what `@actions/core`'s `@actions/http-client` chain
+resolves on its own, so the tree dedupes to a single copy.
+
+## Linting runs in two places, only one of which is local
+
+`npm run lint` is ESLint alone. super-linter v8 in `linter.yml` additionally
+runs Trivy, codespell and checkov, none of which have a local equivalent, so
+those findings appear for the first time in CI. Two recurring ones: checkov
+`CKV2_GHA_1` fails any workflow that sets `permissions:` only at job level (the
+top-level default is then write-all, so every workflow needs its own top-level
+block), and codespell reads prose in comments and Markdown.
+
 ## How the check works
 
 `src/index.ts` is a thin entrypoint that calls `run()` from `src/main.ts`.
@@ -82,23 +100,35 @@ Two behaviors are deliberate and easy to break by accident:
   groupId/owner mismatch fails a workflow.
 - The action declares **no inputs and no outputs** in `action.yml`.
 
-## Known state of the tests
+## Test suite constraints
 
-`__tests__/main.test.ts` has **one pre-existing failing test**: "should not fail
-if groupId is co.touchlab and repo starts with touchlab/". It is stale — it
-still asserts the old repo-name-based check by mocking
-`{ owner: 'some-owner', repo: 'touchlab/repo' }`, but `main.ts` now checks
-`owner`, so `setFailed` is (correctly) called. Fix the test by setting
-`owner: 'touchlab'` rather than changing `main.ts`. Don't treat this failure as
-something you introduced.
+The suite passes 5/5. Two constraints are easy to undo by "simplifying" the
+mocks, and the first one only fails on CI:
 
-Tests mock `fs` by spreading `jest.requireActual('fs')` and overriding only
-`readFileSync` — mocking `fs` wholesale breaks module loading, because
-`@actions/core`'s dependency graph (`@actions/exec` -> `@actions/io`) reads
-`fs.constants.O_RDONLY` at import time. They mock the `github.context.repo`
-getter with `jest.spyOn(..., 'get')`. `beforeEach` calls `jest.resetAllMocks()`,
-which clears implementations, so every test must re-establish its own `repo`
-mock.
+- **`readFileSync` must delegate to the real implementation by default.** The
+  mock is `jest.fn(actual.readFileSync)`, not a bare `jest.fn()`. Two things
+  read `fs` at import time, before any test can set a return value:
+  `@actions/core`'s dependency graph (`@actions/exec` -> `@actions/io`) reads
+  `fs.constants.O_RDONLY`, and `@actions/github` builds its default `Context`,
+  whose constructor runs
+  `JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH))` whenever that
+  variable is set. It is always set on a runner and never set locally, so a bare
+  `jest.fn()` returns `undefined` and the entire suite dies with
+  `SyntaxError: "undefined" is not valid JSON` — green locally, red on CI.
+- **Do not mock `fs` wholesale**, for the same reason; the mock spreads
+  `jest.requireActual('fs')`.
+
+Before trusting a green local run of anything that touches the mocks, reproduce
+a runner:
+
+```bash
+echo '{}' > /tmp/event.json
+GITHUB_EVENT_PATH=/tmp/event.json GITHUB_REPOSITORY=owner/repo npx jest
+```
+
+Tests mock the `github.context.repo` getter with `jest.spyOn(..., 'get')`, and
+`beforeEach` calls `jest.resetAllMocks()`, which clears implementations, so
+every test must re-establish its own `repo` mock.
 
 ## Style
 
