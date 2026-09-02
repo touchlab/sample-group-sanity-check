@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: '31 7 * * 3'
 
+# Least-privilege default; jobs below escalate only what they need.
+# Without this, the top-level default is write-all (checkov CKV2_GHA_1).
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze

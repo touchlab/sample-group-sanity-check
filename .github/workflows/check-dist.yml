@@ -19,6 +19,11 @@ on:
       - '**.md'
   workflow_dispatch:
 
+# Least-privilege default; jobs below escalate only what they need.
+# Without this, the top-level default is write-all (checkov CKV2_GHA_1).
+permissions:
+  contents: read
+
 jobs:
   check-dist:
     name: Check dist/
