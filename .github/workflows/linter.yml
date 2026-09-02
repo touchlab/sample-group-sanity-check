@@ -21,11 +21,17 @@ jobs:
     steps:
       - name: Checkout
         id: checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # super-linter diffs against DEFAULT_BRANCH, which a shallow clone of
+          # a feature branch does not contain ("Neither main, nor origin/main
+          # exist in /github/workspace").
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
         id: setup-node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
@@ -36,10 +42,36 @@ jobs:
 
       - name: Lint Code Base
         id: super-linter
-        uses: super-linter/super-linter/slim@v8
+        uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8
         env:
           DEFAULT_BRANCH: main
+          # super-linter reads this as a regular expression, not a glob.
+          FILTER_REGEX_EXCLUDE: '(.*/)?(dist|badges)/.*'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # v8 reads TYPESCRIPT_ES_CONFIG_FILE (default eslint.config.mjs) from here.
-          LINTER_RULES_PATH: .
+          VALIDATE_ALL_CODEBASE: true
           VALIDATE_JSCPD: false
+          # Posting the summary as a PR comment needs `pull-requests: write`,
+          # which this job deliberately does not have. The step summary stays.
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
+          # ESLint and Prettier run in ci.yml against this repo's own
+          # eslint.config.mjs / .prettierrc.json and their plugin versions.
+          # super-linter ships its own copies, which cannot resolve our plugins
+          # and would disagree on formatting, so it only lints what ci.yml does
+          # not: Markdown, YAML, Bash, workflow syntax, secrets.
+          VALIDATE_TYPESCRIPT_ES: false
+          VALIDATE_TYPESCRIPT_PRETTIER: false
+          VALIDATE_JAVASCRIPT_ES: false
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_JSONC_PRETTIER: false
+          VALIDATE_YAML_PRETTIER: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          # Biome is a third formatter/linter, on by default since v8. Its
+          # defaults (semicolons, double quotes, tabs) are the opposite of this
+          # repo's .prettierrc.json, so it rewrites every file ci.yml just
+          # checked clean. Same reasoning as the block above.
+          VALIDATE_BIOME_FORMAT: false
+          VALIDATE_BIOME_LINT: false
+          # textlint terminology rules ("repo" -> "repository", "git" -> "Git")
+          # rewrite prose without adding signal.
+          VALIDATE_NATURAL_LANGUAGE: false

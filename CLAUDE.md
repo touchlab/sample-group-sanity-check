@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## What this repo is
 
@@ -28,8 +29,8 @@ npx jest -t 'should log an error'             # single test by name
 ```
 
 Note `npm test` (as opposed to `ci-test`) always regenerates
-`badges/coverage.svg` and swallows the jest exit code — use `ci-test` or `npx
-jest` when you need a real pass/fail signal.
+`badges/coverage.svg` and swallows the jest exit code — use `ci-test` or
+`npx jest` when you need a real pass/fail signal.
 
 ## dist/ is the shipped artifact
 
@@ -42,8 +43,8 @@ it `linguist-generated`) — never hand-edit it.
 
 ## Dependency ceiling: do not bump @actions/* blindly
 
-`@actions/core` is pinned to **2.x** and `@actions/github` to **7.x** on purpose.
-The next major of each (`core` 3.x, `github` 9.x) is **ESM-only**
+`@actions/core` is pinned to **2.x** and `@actions/github` to **7.x** on
+purpose. The next major of each (`core` 3.x, `github` 9.x) is **ESM-only**
 (`"type": "module"` with no `require` condition), and this project is CommonJS:
 
 - **ncc fails silently.** Bundling ESM-only deps produces a `dist/index.js` that
@@ -54,7 +55,7 @@ The next major of each (`core` 3.x, `github` 9.x) is **ESM-only**
 - **Jest can't load them.** The suite runs CommonJS; `require(esm)` needs Node
   24.9+, and `@actions/github` 8.x already pulls ESM-only Octokit.
 
-Dependabot is configured to propose npm updates daily, so these bumps *will* be
+Dependabot is configured to propose npm updates daily, so these bumps _will_ be
 offered. Before accepting one, rebuild and check `wc -c dist/index.js` and
 `grep -c webpackMissingModule dist/index.js` (must be 0). Moving past the
 ceiling means migrating the whole project to ESM, which also requires rewriting
@@ -63,19 +64,21 @@ same way under ESM.
 
 ## How the check works
 
-`src/index.ts` is a thin entrypoint that calls `run()` from `src/main.ts`. `run()`:
+`src/index.ts` is a thin entrypoint that calls `run()` from `src/main.ts`.
+`run()`:
 
 1. Reads `gradle.properties` **from the current working directory** — i.e. the
    consumer repo checked out by the calling workflow, not this repo.
-2. Parses it with `dot-properties` and reads the hardcoded key `GROUP`.
-3. If `GROUP` starts with `co.touchlab.`, compares `github.context.repo.owner`
-   against the literal string `'touchlab'` and calls `core.setFailed` on mismatch.
+1. Parses it with `dot-properties` and reads the hardcoded key `GROUP`.
+1. If `GROUP` starts with `co.touchlab.`, compares `github.context.repo.owner`
+   against the literal string `'touchlab'` and calls `core.setFailed` on
+   mismatch.
 
 Two behaviors are deliberate and easy to break by accident:
 
 - **Failures are silent by design.** Any thrown error (missing
   `gradle.properties`, no `GROUP` key, unreadable file) is caught and reported
-  via `core.error`, *not* `core.setFailed` — the action passes. Only the
+  via `core.error`, _not_ `core.setFailed` — the action passes. Only the
   groupId/owner mismatch fails a workflow.
 - The action declares **no inputs and no outputs** in `action.yml`.
 
@@ -92,9 +95,10 @@ something you introduced.
 Tests mock `fs` by spreading `jest.requireActual('fs')` and overriding only
 `readFileSync` — mocking `fs` wholesale breaks module loading, because
 `@actions/core`'s dependency graph (`@actions/exec` -> `@actions/io`) reads
-`fs.constants.O_RDONLY` at import time. They mock the `github.context.repo` getter with
-`jest.spyOn(..., 'get')`. `beforeEach` calls `jest.resetAllMocks()`, which clears
-implementations, so every test must re-establish its own `repo` mock.
+`fs.constants.O_RDONLY` at import time. They mock the `github.context.repo`
+getter with `jest.spyOn(..., 'get')`. `beforeEach` calls `jest.resetAllMocks()`,
+which clears implementations, so every test must re-establish its own `repo`
+mock.
 
 ## Style
 
